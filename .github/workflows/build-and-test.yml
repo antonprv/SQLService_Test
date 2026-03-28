@@ -231,14 +231,14 @@ jobs:
         shell: pwsh
 
 # ────────────────────────────────────────────────────────────────────
-# JOB 3: Release — создаём GitHub Release с архивами при пуше тега
+# JOB 3: Release — создаём GitHub Release с архивами при каждом пуше
 # ────────────────────────────────────────────────────────────────────
   release:
     name: Create GitHub Release
     runs-on: windows-latest
     needs: [ build, smoke-test ]
-    # Запускается только при пуше тега вида v1.0.0
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Запускается только при пуше в ветку (не при pull_request)
+    if: github.event_name == 'push'
 
     steps:
       - name: Checkout repository
@@ -260,8 +260,8 @@ jobs:
       # Упаковываем в ZIP
       - name: Create release archives
         run: |
-          Compress-Archive -Path dist\SqlWebService\*     -DestinationPath dist\SqlWebService-${{ github.ref_name }}.zip
-          Compress-Archive -Path dist\SqlWebServiceClient\* -DestinationPath dist\SqlWebServiceClient-${{ github.ref_name }}.zip
+          Compress-Archive -Path dist\SqlWebService\*     -DestinationPath dist\SqlWebService-build-${{ github.run_number }}.zip
+          Compress-Archive -Path dist\SqlWebServiceClient\* -DestinationPath dist\SqlWebServiceClient-build-${{ github.run_number }}.zip
           Write-Host "✓ Archives created"
           Get-Item dist\*.zip | Select-Object Name, Length
         shell: pwsh
@@ -270,15 +270,15 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: SqlWebService ${{ github.ref_name }}
+          name: SqlWebService build ${{ github.run_number }}
           body: |
-            ## SqlWebService ${{ github.ref_name }}
+            ## SqlWebService build ${{ github.run_number }}
 
             ### Состав релиза
             | Архив | Описание |
             |-------|---------|
-            | `SqlWebService-${{ github.ref_name }}.zip` | WCF-сервис (самохостинг, .NET Framework 4.8) |
-            | `SqlWebServiceClient-${{ github.ref_name }}.zip` | WinForms UI-клиент (.NET Framework 4.8) |
+            | `SqlWebService-build-${{ github.run_number }}.zip` | WCF-сервис (самохостинг, .NET Framework 4.8) |
+            | `SqlWebServiceClient-build-${{ github.run_number }}.zip` | WinForms UI-клиент (.NET Framework 4.8) |
 
             ### Быстрый старт
             1. Распакуйте `SqlWebService-*.zip`, запустите `SqlWebService.exe` от имени администратора
@@ -290,7 +290,7 @@ jobs:
             - .NET Framework 4.8 Runtime (предустановлен в Windows 10 1903+)
             - Доступный экземпляр MS SQL Server
           files: |
-            dist/SqlWebService-${{ github.ref_name }}.zip
-            dist/SqlWebServiceClient-${{ github.ref_name }}.zip
+            dist/SqlWebService-build-${{ github.run_number }}.zip
+            dist/SqlWebServiceClient-build-${{ github.run_number }}.zip
           draft: false
           prerelease: false
