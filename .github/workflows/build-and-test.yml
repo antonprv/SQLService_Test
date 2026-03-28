@@ -196,7 +196,7 @@ jobs:
             -Uri "${{ env.SERVICE_URL }}" `
             -Method POST `
             -ContentType "text/xml; charset=utf-8" `
-            -Headers @{ SOAPAction = '""' } `
+            -Headers @{ SOAPAction = 'http://sqlwebservice.local/v1/ISqlService/Connect' } `
             -Body $soapConnect `
             -UseBasicParsing
 
@@ -204,7 +204,7 @@ jobs:
           $ns  = @{ s="http://schemas.xmlsoap.org/soap/envelope/"; v="http://sqlwebservice.local/v1" }
 
           # Сервис должен вернуть структурированный ответ (не SOAP Fault)
-          $connectResult = $xml.SelectSingleNode("//ConnectResult", $xml.CreateNavigator().NameTable) 
+          $connectResult = $xml.SelectSingleNode("//ConnectResult", $xml.CreateNavigator().NameTable)
           if ($response.Content -match "ConnectResult") {
             Write-Host "✓ SOAP Connect: service responded with structured ConnectResult"
             Write-Host "  Raw snippet: $($response.Content.Substring(0, [Math]::Min(400, $response.Content.Length)))"

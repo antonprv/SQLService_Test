@@ -39,6 +39,12 @@ namespace SqlWebServiceClient
         [System.Runtime.Serialization.DataMember] public string Message { get; set; }
     }
 
+    [System.Runtime.Serialization.DataContract]
+    public class DisconnectRequest
+    {
+        [System.Runtime.Serialization.DataMember] public string SessionId { get; set; }
+    }
+
     // ─── Интерфейс сервиса для клиентского прокси ──────────────────────────
 
     [ServiceContract(Namespace = "http://sqlwebservice.local/v1")]
@@ -46,7 +52,7 @@ namespace SqlWebServiceClient
     {
         [OperationContract] ConnectResponse    Connect(ConnectRequest request);
         [OperationContract] SqlVersionResponse GetSqlVersion(string sessionId);
-        [OperationContract] DisconnectResponse Disconnect(string sessionId);
+        [OperationContract] DisconnectResponse Disconnect(DisconnectRequest request);
     }
 
     // ─── Обёртка над WCF-каналом ───────────────────────────────────────────
@@ -92,7 +98,7 @@ namespace SqlWebServiceClient
 
         public ConnectResponse    Connect(ConnectRequest req) => _channel.Connect(req);
         public SqlVersionResponse GetSqlVersion(string id)   => _channel.GetSqlVersion(id);
-        public DisconnectResponse Disconnect(string id)       => _channel.Disconnect(id);
+        public DisconnectResponse Disconnect(string id)      => _channel.Disconnect(new DisconnectRequest { SessionId = id });
 
         public void Dispose()
         {

@@ -100,16 +100,19 @@ namespace SqlWebService
 
         // ─── Disconnect ─────────────────────────────────────────────────────
 
-        public DisconnectResponse Disconnect(string sessionId)
+        public DisconnectResponse Disconnect(DisconnectRequest request)
         {
-            if (string.IsNullOrWhiteSpace(sessionId))
+            if (request == null)
+                return Fail<DisconnectResponse>("Запрос не может быть пустым.");
+
+            if (string.IsNullOrWhiteSpace(request.SessionId))
                 return Fail<DisconnectResponse>("SessionId не указан.");
 
-            bool removed = SessionStore.Remove(sessionId);
+            bool removed = SessionStore.Remove(request.SessionId);
 
             return removed
                 ? new DisconnectResponse { Success = true,  Message = "Подключение закрыто." }
-                : new DisconnectResponse { Success = false, Message = SessionNotFound(sessionId) };
+                : new DisconnectResponse { Success = false, Message = SessionNotFound(request.SessionId) };
         }
 
         // ─── Вспомогательные методы ─────────────────────────────────────────

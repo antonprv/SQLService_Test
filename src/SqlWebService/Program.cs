@@ -41,12 +41,19 @@ namespace SqlWebService
 
                 // MEX-эндпоинт — позволяет Visual Studio добавить ссылку на сервис
                 // и автоматически сгенерировать клиентский прокси-класс.
+                // WSDL доступен по адресу: http://localhost:8080/SqlService/mex?wsdl
                 var metadataBehavior = new ServiceMetadataBehavior
                 {
                     HttpGetEnabled = true,
-                    HttpGetUrl     = new Uri(baseAddress + "/mex")
+                    HttpGetUrl = new Uri(baseAddress + "/mex")
                 };
                 host.Description.Behaviors.Add(metadataBehavior);
+
+                // Добавляем MEX-эндпоинт для поддержки IMetadataExchange
+                host.AddServiceEndpoint(
+                    typeof(System.ServiceModel.Description.IMetadataExchange),
+                    new BasicHttpBinding(),
+                    "mex");
 
                 // Подробные ошибки в ответе — только для dev! В prod → false.
                 host.Description.Behaviors

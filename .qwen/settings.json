@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(msbuild *)",
+      "Bash(\"%programfiles(x86)%\\microsoft visual studio\\installer\\vswhere.exe\" *)",
+      "Bash(get-process)",
+      "Bash(where-object *)",
+      "Bash(netsh *)",
+      "Bash(taskkill *)"
     ]
   },
   "$version": 3

@@ -8,7 +8,7 @@ namespace SqlWebService
     /// Параметры подключения к MS SQL Server.
     /// Поддерживает как Windows-, так и SQL-аутентификацию.
     /// </summary>
-    [DataContract(Namespace = "http://sqlwebservice.local/v1")]
+    [DataContract(Name = "ConnectRequestType", Namespace = "http://sqlwebservice.local/v1")]
     public class ConnectRequest
     {
         /// <summary>Сервер / инстанс, например "localhost" или "srv\\SQLEXPRESS".</summary>
@@ -42,7 +42,7 @@ namespace SqlWebService
     // ─── Ответ на подключение ───────────────────────────────────────────────
 
     /// <summary>Результат попытки подключения.</summary>
-    [DataContract(Namespace = "http://sqlwebservice.local/v1")]
+    [DataContract(Name = "ConnectResponseType", Namespace = "http://sqlwebservice.local/v1")]
     public class ConnectResponse
     {
         /// <summary>true, если подключение успешно установлено.</summary>
@@ -65,7 +65,7 @@ namespace SqlWebService
     // ─── Запрос / ответ версии ──────────────────────────────────────────────
 
     /// <summary>Версия MS SQL Server текущего сеанса.</summary>
-    [DataContract(Namespace = "http://sqlwebservice.local/v1")]
+    [DataContract(Name = "SqlVersionResponseType", Namespace = "http://sqlwebservice.local/v1")]
     public class SqlVersionResponse
     {
         /// <summary>true, если запрос выполнен без ошибок.</summary>
@@ -81,10 +81,21 @@ namespace SqlWebService
         public string Message { get; set; }
     }
 
+    // ─── Запрос на отключение ───────────────────────────────────────────────
+
+    /// <summary>Запрос на закрытие подключения.</summary>
+    [DataContract(Name = "DisconnectRequestType", Namespace = "http://sqlwebservice.local/v1")]
+    public class DisconnectRequest
+    {
+        /// <summary>Идентификатор сеанса.</summary>
+        [DataMember(Order = 1)]
+        public string SessionId { get; set; }
+    }
+
     // ─── Ответ на отключение ────────────────────────────────────────────────
 
     /// <summary>Результат закрытия подключения.</summary>
-    [DataContract(Namespace = "http://sqlwebservice.local/v1")]
+    [DataContract(Name = "DisconnectResponseType", Namespace = "http://sqlwebservice.local/v1")]
     public class DisconnectResponse
     {
         /// <summary>true, если соединение успешно закрыто.</summary>
