@@ -220,10 +220,10 @@ jobs:
         if: always()
         run: |
           if (Test-Path "service.pid") {
-            $pid = Get-Content "service.pid"
+            $servicePid = Get-Content "service.pid"
             try {
-              Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-              Write-Host "✓ Service (PID $pid) stopped"
+              Stop-Process -Id $servicePid -Force -ErrorAction SilentlyContinue
+              Write-Host "✓ Service (PID $servicePid) stopped"
             } catch {
               Write-Host "Service already stopped"
             }
