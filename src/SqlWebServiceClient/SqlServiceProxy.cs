@@ -3,8 +3,6 @@ using System.ServiceModel;
 
 namespace SqlWebServiceClient
 {
-    // ─── Контракты (дублируем здесь или берём из общей сборки) ────────────
-
     [System.Runtime.Serialization.DataContract]
     public class ConnectRequest
     {
@@ -45,8 +43,6 @@ namespace SqlWebServiceClient
         [System.Runtime.Serialization.DataMember] public string SessionId { get; set; }
     }
 
-    // ─── Интерфейс сервиса для клиентского прокси ──────────────────────────
-
     [ServiceContract(Namespace = "http://sqlwebservice.local/v1")]
     public interface ISqlService
     {
@@ -55,20 +51,9 @@ namespace SqlWebServiceClient
         [OperationContract] DisconnectResponse Disconnect(DisconnectRequest request);
     }
 
-    // ─── Обёртка над WCF-каналом ───────────────────────────────────────────
-
     /// <summary>
-    /// Тонкая обёртка над WCF ChannelFactory.
-    ///
-    /// ПОЧЕМУ НЕ Add Service Reference?
-    ///   Add Service Reference генерирует громоздкий код, жёстко привязанный к
-    ///   конкретной версии WSDL. При изменении контракта нужно переавтогенерировать.
-    ///   ChannelFactory{T} работает с интерфейсом напрямую — проще поддерживать,
-    ///   легче тестировать (можно подменить мок).
-    ///
-    /// ЖИЗНЕННЫЙ ЦИКЛ:
-    ///   Create() → Connect() → GetSqlVersion() → Disconnect() → Close()/Dispose()
-    ///   Один экземпляр SqlServiceProxy соответствует одному транспортному каналу.
+    /// Обёртка над WCF ChannelFactory.
+    /// <para>ChannelFactory создаёт прокси напрямую из интерфейса без генерации кода.</para>
     /// </summary>
     public sealed class SqlServiceProxy : IDisposable
     {
@@ -93,9 +78,6 @@ namespace SqlWebServiceClient
             _channel = _factory.CreateChannel();
         }
 
-        // Делегируем вызовы напрямую в канал — никакой бизнес-логики здесь нет.
-        // Обработка ошибок остаётся на стороне UI-слоя (MainForm).
-
         public ConnectResponse    Connect(ConnectRequest req) => _channel.Connect(req);
         public SqlVersionResponse GetSqlVersion(string id)   => _channel.GetSqlVersion(id);
         public DisconnectResponse Disconnect(string id)      => _channel.Disconnect(new DisconnectRequest { SessionId = id });
@@ -105,8 +87,6 @@ namespace SqlWebServiceClient
             if (_disposed) return;
             _disposed = true;
 
-            // WCF-каналы нужно закрывать через Abort при ошибках,
-            // иначе Close() может выбросить повторное исключение.
             try
             {
                 if (_channel is IClientChannel ch)

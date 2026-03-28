@@ -8,15 +8,9 @@ namespace SqlWebService
 {
     /// <summary>
     /// Реализация <see cref="ISqlService"/>.
-    ///
-    /// РЕЖИМ ИНСТАНЦИРОВАНИЯ: PerCall — каждый входящий вызов получает
-    /// новый экземпляр класса. Это безопасно, потому что состояние (подключения)
-    /// хранится в статическом <see cref="SessionStore"/>.
-    ///
-    /// ОШИБКИ: Все исключения перехватываются внутри методов и возвращаются
-    /// как структурированные ответы (Success=false, Message=...).
-    /// WCF FaultException не используется намеренно — клиентский UI
-    /// проще обрабатывает единообразные DTO, чем разные типы fault.
+    /// <para>Режим инстанцирования: PerCall - каждый вызов получает новый экземпляр.
+    /// Состояние хранится в статическом <see cref="SessionStore"/>.</para>
+    /// <para>Ошибки возвращаются как структурированные ответы (Success=false, Message=...).</para>
     /// </summary>
     [ServiceBehavior(
         InstanceContextMode = InstanceContextMode.PerCall,
@@ -24,8 +18,6 @@ namespace SqlWebService
         Namespace = "http://sqlwebservice.local/v1")]
     public class SqlService : ISqlService
     {
-        // ─── Connect ────────────────────────────────────────────────────────
-
         public ConnectResponse Connect(ConnectRequest request)
         {
             if (request == null)
@@ -38,7 +30,7 @@ namespace SqlWebService
             {
                 var connectionString = BuildConnectionString(request);
                 var connection = new SqlConnection(connectionString);
-                connection.Open();                 // синхронно — .NET Framework 4.x
+                connection.Open();
 
                 var sessionId = SessionStore.Create(connection);
 
@@ -52,8 +44,6 @@ namespace SqlWebService
             }
             catch (SqlException ex)
             {
-                // SqlException содержит номер и класс ошибки SQL Server —
-                // выводим их, чтобы администратор мог диагностировать проблему.
                 return Fail<ConnectResponse>(
                     $"Ошибка SQL Server (номер {ex.Number}): {ex.Message}");
             }
@@ -63,8 +53,6 @@ namespace SqlWebService
             }
         }
 
-        // ─── GetSqlVersion ──────────────────────────────────────────────────
-
         public SqlVersionResponse GetSqlVersion(string sessionId)
         {
             var connection = SessionStore.Get(sessionId);
@@ -73,9 +61,6 @@ namespace SqlWebService
 
             try
             {
-                // @@VERSION возвращает полную строку вида:
-                //   Microsoft SQL Server 2019 (RTM-CU18) - 15.0.4261.1 ...
-                // Используем параметризованный запрос (даже для служебного — хорошая привычка).
                 using (var cmd = new SqlCommand("SELECT @@VERSION;", connection))
                 {
                     var version = cmd.ExecuteScalar() as string;
@@ -98,8 +83,6 @@ namespace SqlWebService
             }
         }
 
-        // ─── Disconnect ─────────────────────────────────────────────────────
-
         public DisconnectResponse Disconnect(DisconnectRequest request)
         {
             if (request == null)
@@ -115,8 +98,6 @@ namespace SqlWebService
                 : new DisconnectResponse { Success = false, Message = SessionNotFound(request.SessionId) };
         }
 
-        // ─── Вспомогательные методы ─────────────────────────────────────────
-
         private static string BuildConnectionString(ConnectRequest req)
         {
             var builder = new SqlConnectionStringBuilder
@@ -124,8 +105,6 @@ namespace SqlWebService
                 DataSource         = req.Server,
                 InitialCatalog     = req.Database ?? "master",
                 ConnectTimeout     = req.ConnectTimeoutSeconds > 0 ? req.ConnectTimeoutSeconds : 30,
-                // Шифруем канал, но принимаем самоподписанные сертификаты
-                // (типично для dev-окружений без CA).
                 Encrypt            = false,
                 TrustServerCertificate = true
             };
@@ -143,10 +122,8 @@ namespace SqlWebService
             return builder.ConnectionString;
         }
 
-        /// <summary>Фабрика для единообразного формирования ответов-ошибок.</summary>
         private static T Fail<T>(string message) where T : class, new()
         {
-            // Рефлексия не используется — каждый тип обрабатывается явно.
             if (typeof(T) == typeof(ConnectResponse))
                 return new ConnectResponse    { Success = false, Message = message } as T;
             if (typeof(T) == typeof(SqlVersionResponse))

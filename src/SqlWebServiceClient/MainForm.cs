@@ -7,36 +7,22 @@ namespace SqlWebServiceClient
 {
     /// <summary>
     /// Главная форма приложения.
-    ///
-    /// СОСТОЯНИЯ UI:
-    ///   «Не подключено»  — кнопки GetVersion/Disconnect заблокированы.
-    ///   «Подключено»     — кнопка Connect заблокирована; SessionId виден в статусе.
-    ///
-    /// ОБРАБОТКА ОШИБОК:
-    ///   Все вызовы прокси обёрнуты в try/catch.
-    ///   Сетевые/WCF-ошибки отображаются красным в лог-консоли.
-    ///   Прокси пересоздаётся при каждом Connect (Dispose при Disconnect).
     /// </summary>
     public partial class MainForm : Form
     {
         private SqlServiceProxy _proxy;
         private string          _sessionId;
 
-        // ─── Конструктор ────────────────────────────────────────────────────
-
         public MainForm()
         {
             InitializeComponent();
 
-            // Подставляем URL из App.config (если задан)
             var ep = ConfigurationManager.AppSettings["ServiceEndpoint"];
             if (!string.IsNullOrWhiteSpace(ep))
                 txtServiceUrl.Text = ep;
 
             SetUiState(connected: false);
         }
-
-        // ─── Обработчики кнопок ─────────────────────────────────────────────
 
         private void btnConnect_Click(object sender, EventArgs e)
         {
@@ -49,7 +35,6 @@ namespace SqlWebServiceClient
 
             try
             {
-                // Создаём новый прокси при каждом Connect
                 _proxy?.Dispose();
                 _proxy = new SqlServiceProxy(url);
 
@@ -138,15 +123,12 @@ namespace SqlWebServiceClient
             rtbLog.Clear();
         }
 
-        // ─── Переключение состояния UI ──────────────────────────────────────
-
         private void SetUiState(bool connected)
         {
             btnConnect.Enabled    = !connected;
             btnGetVersion.Enabled = connected;
             btnDisconnect.Enabled = connected;
 
-            // Поля подключения — только когда не подключены
             txtServer.Enabled    = !connected;
             txtDatabase.Enabled  = !connected;
             txtUsername.Enabled  = !connected && !chkIntegrated.Checked;
@@ -159,8 +141,6 @@ namespace SqlWebServiceClient
             lblStatus.ForeColor  = connected ? Color.LimeGreen : Color.Gray;
         }
 
-        // ─── Лог-консоль ────────────────────────────────────────────────────
-
         private void Log(string message, Color color)
         {
             var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
@@ -172,8 +152,6 @@ namespace SqlWebServiceClient
             rtbLog.AppendText(message + Environment.NewLine);
             rtbLog.ScrollToCaret();
         }
-
-        // ─── Прочее ─────────────────────────────────────────────────────────
 
         private void chkIntegrated_CheckedChanged(object sender, EventArgs e)
         {

@@ -7,7 +7,8 @@
       "Bash(get-process)",
       "Bash(where-object *)",
       "Bash(netsh *)",
-      "Bash(taskkill *)"
+      "Bash(taskkill *)",
+      "Bash(dotnet *)"
     ]
   },
   "$version": 3

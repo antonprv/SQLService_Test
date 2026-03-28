@@ -7,14 +7,8 @@ namespace SqlWebService
 {
     /// <summary>
     /// Потокобезопасное хранилище активных подключений.
-    ///
-    /// ДИЗАЙН-РЕШЕНИЕ: Сервис работает в режиме per-call (не singleton),
-    /// поэтому подключения нельзя хранить в полях экземпляра.
-    /// SessionStore предоставляет единое место хранения, доступное из любого
-    /// экземпляра сервиса. Ключ — строковый GUID (SessionId).
-    ///
-    /// Сборка мусора: таймер раз в минуту закрывает сеансы, открытые
-    /// дольше MaxSessionLifetimeMinutes, — защита от утечек при краше клиента.
+    /// <para>Сервис работает в режиме per-call, поэтому подключения хранятся в статическом хранилище.</para>
+    /// <para>Таймер автоматически закрывает сеансы, открытые дольше MaxSessionLifetimeMinutes.</para>
     /// </summary>
     internal static class SessionStore
     {
@@ -28,22 +22,20 @@ namespace SqlWebService
 
         static SessionStore()
         {
-            _gcTimer = new Timer(60_000); // каждую минуту
+            _gcTimer = new Timer(60_000);
             _gcTimer.Elapsed += CollectExpiredSessions;
             _gcTimer.AutoReset = true;
             _gcTimer.Start();
         }
 
-        /// <summary>Создаёт новый сеанс и возвращает его SessionId.</summary>
         public static string Create(SqlConnection connection)
         {
-            var sessionId = Guid.NewGuid().ToString("N"); // 32-символьный hex без дефисов
+            var sessionId = Guid.NewGuid().ToString("N");
             var entry = new SessionEntry(connection);
             _sessions[sessionId] = entry;
             return sessionId;
         }
 
-        /// <summary>Возвращает подключение по sessionId или null, если сеанс не найден.</summary>
         public static SqlConnection Get(string sessionId)
         {
             if (sessionId != null && _sessions.TryGetValue(sessionId, out var entry))
@@ -54,7 +46,6 @@ namespace SqlWebService
             return null;
         }
 
-        /// <summary>Закрывает и удаляет сеанс. Возвращает true, если сеанс существовал.</summary>
         public static bool Remove(string sessionId)
         {
             if (sessionId != null && _sessions.TryRemove(sessionId, out var entry))
@@ -80,10 +71,8 @@ namespace SqlWebService
         private static void SafeClose(SqlConnection conn)
         {
             try { conn?.Close(); conn?.Dispose(); }
-            catch { /* игнорируем ошибки при закрытии */ }
+            catch { }
         }
-
-        // ─── Вложенный класс записи сеанса ─────────────────────────────────
 
         private sealed class SessionEntry
         {
