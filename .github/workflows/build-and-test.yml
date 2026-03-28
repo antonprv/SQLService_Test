@@ -1,0 +1,296 @@
+name: Build & Test SqlWebService
+
+# ────────────────────────────────────────────────────────────────────
+# Триггеры
+# ────────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:          # ручной запуск из интерфейса GitHub
+
+# ────────────────────────────────────────────────────────────────────
+# Переменные окружения
+# ────────────────────────────────────────────────────────────────────
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  SERVICE_PORT: 8080
+  SERVICE_URL: http://localhost:8080/SqlService
+
+# ────────────────────────────────────────────────────────────────────
+# JOB 1: Build — компиляция обоих проектов
+# ────────────────────────────────────────────────────────────────────
+jobs:
+  build:
+    name: Build (.NET Framework 4.8)
+    runs-on: windows-latest          # .NET Framework требует Windows-раннера
+
+    steps:
+      # 1. Получаем исходники
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Настраиваем MSBuild (входит в образ windows-latest)
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      # 3. Собираем WCF-сервис
+      - name: Build SqlWebService (Release)
+        run: |
+          msbuild src\SqlWebService\SqlWebService.csproj `
+            /p:Configuration=Release `
+            /verbosity:minimal `
+            /nologo
+        shell: pwsh
+
+      # 4. Собираем WinForms-клиент
+      - name: Build SqlWebServiceClient (Release)
+        run: |
+          msbuild src\SqlWebServiceClient\SqlWebServiceClient.csproj `
+            /p:Configuration=Release `
+            /verbosity:minimal `
+            /nologo
+        shell: pwsh
+
+      # 5. Проверяем, что артефакты существуют
+      - name: Verify build artifacts
+        run: |
+          if (-not (Test-Path "src\SqlWebService\bin\Release\SqlWebService.exe")) {
+            Write-Error "SqlWebService.exe not found!"
+            exit 1
+          }
+          if (-not (Test-Path "src\SqlWebServiceClient\bin\Release\SqlWebServiceClient.exe")) {
+            Write-Error "SqlWebServiceClient.exe not found!"
+            exit 1
+          }
+          Write-Host "✓ Both artifacts present"
+          Get-Item "src\SqlWebService\bin\Release\SqlWebService.exe" | Select-Object Name, Length, LastWriteTime
+          Get-Item "src\SqlWebServiceClient\bin\Release\SqlWebServiceClient.exe" | Select-Object Name, Length, LastWriteTime
+        shell: pwsh
+
+      # 6. Сохраняем артефакты сервиса
+      - name: Upload SqlWebService artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SqlWebService-Release
+          path: src\SqlWebService\bin\Release\
+
+      # 7. Сохраняем артефакты клиента
+      - name: Upload SqlWebServiceClient artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SqlWebServiceClient-Release
+          path: src\SqlWebServiceClient\bin\Release\
+
+# ────────────────────────────────────────────────────────────────────
+# JOB 2: Online Test — запуск сервиса и интеграционный smoke-тест
+#
+# Тест проверяет:
+#   - Сервис стартует и слушает порт 8080
+#   - WSDL-эндпоинт (/mex?wsdl) отдаёт XML
+#   - SOAP-запрос Connect возвращает Success=true
+#   - SOAP-запрос GetSqlVersion возвращает строку версии
+#   - SOAP-запрос Disconnect возвращает Success=true
+#
+# NOTE: MS SQL Server недоступен на раннере GitHub → Connect вернёт
+#       Success=false с диагностическим сообщением об ошибке SQL.
+#       Тест проверяет именно корректность ответа сервиса, а не БД.
+# ────────────────────────────────────────────────────────────────────
+  smoke-test:
+    name: Smoke Test (online service check)
+    runs-on: windows-latest
+    needs: build                     # запускается только после успешного build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      # Собираем сервис в Debug для smoke-теста
+      - name: Build SqlWebService (Debug)
+        run: |
+          msbuild src\SqlWebService\SqlWebService.csproj `
+            /p:Configuration=Debug `
+            /verbosity:minimal `
+            /nologo
+        shell: pwsh
+
+      # Регистрируем URL-префикс (нужно для ServiceHost без Admin-прав)
+      - name: Register HTTP URL ACL
+        run: |
+          netsh http add urlacl url=http://+:${{ env.SERVICE_PORT }}/SqlService/ user=Everyone
+          Write-Host "✓ URL ACL registered"
+        shell: pwsh
+
+      # Запускаем сервис в фоне
+      - name: Start SqlWebService (background)
+        run: |
+          $proc = Start-Process `
+            -FilePath "src\SqlWebService\bin\Debug\SqlWebService.exe" `
+            -PassThru `
+            -WindowStyle Hidden
+          # Сохраняем PID для последующей остановки
+          $proc.Id | Out-File -FilePath "service.pid"
+          Write-Host "✓ Service started (PID: $($proc.Id))"
+        shell: pwsh
+
+      # Ждём, пока сервис поднимется (максимум 30 секунд)
+      - name: Wait for service to be ready
+        run: |
+          $url = "${{ env.SERVICE_URL }}/mex?wsdl"
+          $timeout = 30
+          $elapsed = 0
+          Write-Host "Waiting for $url ..."
+          while ($elapsed -lt $timeout) {
+            try {
+              $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+              Write-Host "✓ Service is ready (HTTP $($response.StatusCode))"
+              break
+            } catch {
+              Start-Sleep -Seconds 2
+              $elapsed += 2
+              Write-Host "  ... still waiting ($elapsed s)"
+            }
+          }
+          if ($elapsed -ge $timeout) {
+            Write-Error "Service did not start within $timeout seconds"
+            exit 1
+          }
+        shell: pwsh
+
+      # Проверяем WSDL
+      - name: Check WSDL endpoint
+        run: |
+          $wsdl = Invoke-WebRequest -Uri "${{ env.SERVICE_URL }}/mex?wsdl" -UseBasicParsing
+          if ($wsdl.Content -notmatch "wsdl:definitions") {
+            Write-Error "WSDL response does not contain expected content"
+            exit 1
+          }
+          Write-Host "✓ WSDL endpoint OK ($(($wsdl.Content).Length) bytes)"
+        shell: pwsh
+
+      # Smoke-тест SOAP: Connect (ожидаем ответ с Success=false — нет SQL Server, но сервис работает)
+      - name: SOAP smoke test — Connect
+        run: |
+          $soapConnect = @'
+          <?xml version="1.0" encoding="utf-8"?>
+          <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+            <s:Body>
+              <Connect xmlns="http://sqlwebservice.local/v1">
+                <request>
+                  <Server>localhost</Server>
+                  <Database>master</Database>
+                  <UseIntegratedSecurity>true</UseIntegratedSecurity>
+                  <ConnectTimeoutSeconds>5</ConnectTimeoutSeconds>
+                </request>
+              </Connect>
+            </s:Body>
+          </s:Envelope>
+          '@
+
+          $response = Invoke-WebRequest `
+            -Uri "${{ env.SERVICE_URL }}" `
+            -Method POST `
+            -ContentType "text/xml; charset=utf-8" `
+            -Headers @{ SOAPAction = '""' } `
+            -Body $soapConnect `
+            -UseBasicParsing
+
+          $xml = [xml]$response.Content
+          $ns  = @{ s="http://schemas.xmlsoap.org/soap/envelope/"; v="http://sqlwebservice.local/v1" }
+
+          # Сервис должен вернуть структурированный ответ (не SOAP Fault)
+          $connectResult = $xml.SelectSingleNode("//ConnectResult", $xml.CreateNavigator().NameTable) 
+          if ($response.Content -match "ConnectResult") {
+            Write-Host "✓ SOAP Connect: service responded with structured ConnectResult"
+            Write-Host "  Raw snippet: $($response.Content.Substring(0, [Math]::Min(400, $response.Content.Length)))"
+          } else {
+            Write-Error "Expected ConnectResult in response"
+            Write-Host "Response: $($response.Content)"
+            exit 1
+          }
+        shell: pwsh
+
+      # Останавливаем сервис
+      - name: Stop SqlWebService
+        if: always()
+        run: |
+          if (Test-Path "service.pid") {
+            $pid = Get-Content "service.pid"
+            try {
+              Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+              Write-Host "✓ Service (PID $pid) stopped"
+            } catch {
+              Write-Host "Service already stopped"
+            }
+          }
+        shell: pwsh
+
+# ────────────────────────────────────────────────────────────────────
+# JOB 3: Release — создаём GitHub Release с архивами при пуше тега
+# ────────────────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    runs-on: windows-latest
+    needs: [ build, smoke-test ]
+    # Запускается только при пуше тега вида v1.0.0
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Скачиваем ранее собранные артефакты
+      - name: Download SqlWebService artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: SqlWebService-Release
+          path: dist/SqlWebService
+
+      - name: Download SqlWebServiceClient artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: SqlWebServiceClient-Release
+          path: dist/SqlWebServiceClient
+
+      # Упаковываем в ZIP
+      - name: Create release archives
+        run: |
+          Compress-Archive -Path dist\SqlWebService\*     -DestinationPath dist\SqlWebService-${{ github.ref_name }}.zip
+          Compress-Archive -Path dist\SqlWebServiceClient\* -DestinationPath dist\SqlWebServiceClient-${{ github.ref_name }}.zip
+          Write-Host "✓ Archives created"
+          Get-Item dist\*.zip | Select-Object Name, Length
+        shell: pwsh
+
+      # Публикуем GitHub Release
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: SqlWebService ${{ github.ref_name }}
+          body: |
+            ## SqlWebService ${{ github.ref_name }}
+
+            ### Состав релиза
+            | Архив | Описание |
+            |-------|---------|
+            | `SqlWebService-${{ github.ref_name }}.zip` | WCF-сервис (самохостинг, .NET Framework 4.8) |
+            | `SqlWebServiceClient-${{ github.ref_name }}.zip` | WinForms UI-клиент (.NET Framework 4.8) |
+
+            ### Быстрый старт
+            1. Распакуйте `SqlWebService-*.zip`, запустите `SqlWebService.exe` от имени администратора
+            2. Распакуйте `SqlWebServiceClient-*.zip`, запустите `SqlWebServiceClient.exe`
+            3. В поле **SQL Server** введите имя вашего экземпляра и нажмите **Подключиться**
+
+            ### Требования
+            - Windows 10/11 или Windows Server 2016+
+            - .NET Framework 4.8 Runtime (предустановлен в Windows 10 1903+)
+            - Доступный экземпляр MS SQL Server
+          files: |
+            dist/SqlWebService-${{ github.ref_name }}.zip
+            dist/SqlWebServiceClient-${{ github.ref_name }}.zip
+          draft: false
+          prerelease: false

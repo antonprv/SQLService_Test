@@ -1,0 +1,141 @@
+# Visual Studio / .NET Framework
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio 2015/2017/2019/2022
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Visual Studio Code
+.vscode/
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# Build artifacts
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.exp
+*.map
+*.lib
+*.a
+*.so
+*.dylib
+
+# MSTest test results
+TestResults/
+test/
+
+# NCrunch
+*.ncrunch*
+.*crunch*.local*
+
+# Code coverage
+*.coverage
+*.coveragexml
+coverage/
+coverage.json
+coverage.xml
+
+# StyleCop
+StyleCopReport.xml
+
+# XML documentation files (if generated)
+*.xml
+
+# Resharper
+_ReSharper*/
+*.resharper
+*.resharper.user
+
+# DotCover
+dotCover.html
+dotCover.xml
+
+# ANTS Performance/Memory Profiler
+*.antsprofiler
+*.antsmemory
+
+# Installshield
+Setup/
+
+# ClickOnce manifests
+*.manifest
+*.vsto
+
+# OneGet
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# Mono Auto-generated files
+*.pidb
+*.userprefs
+
+# Unity3D
+*.unityproj
+*.utype
+
+# Windows image caches
+Thumbs.db
+ehthumbs.db
+
+# Folder config file
+Desktop.ini
+
+# Mac
+.DS_Store
+
+# Backup files
+*.bak
+*~
+
+# Temporary files
+*.tmp
+*.temp
+
+# Service PID files
+*.pid
+
+# Local configuration overrides
+*.local.config
+appsettings.local.json
