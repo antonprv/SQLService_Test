@@ -18,6 +18,8 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   SERVICE_PORT: 8080
   SERVICE_URL: http://localhost:8080/SqlService
+  # Опция для использования Node.js 24 вместо устаревающего Node.js 20
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 # ────────────────────────────────────────────────────────────────────
 # JOB 1: Build — компиляция обоих проектов
@@ -270,6 +272,7 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: build-${{ github.run_number }}
           name: SqlWebService build ${{ github.run_number }}
           body: |
             ## SqlWebService build ${{ github.run_number }}
