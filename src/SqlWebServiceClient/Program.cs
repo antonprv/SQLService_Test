@@ -3,14 +3,14 @@ using System.Windows.Forms;
 
 namespace SqlWebServiceClient
 {
-    internal static class Program
+  internal static class Program
+  {
+    [STAThread]
+    private static void Main()
     {
-        [STAThread]
-        private static void Main()
-        {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MainForm());
-        }
+      Application.EnableVisualStyles();
+      Application.SetCompatibleTextRenderingDefault(false);
+      Application.Run(new MainForm());
     }
+  }
 }
